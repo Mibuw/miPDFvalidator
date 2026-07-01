@@ -1,0 +1,24 @@
+services:
+  mipdfvalidator:
+    build: .
+    image: mipdfvalidator:latest
+    container_name: mipdfvalidator
+    # Keep the app running permanently and bring it back after reboots
+    # (as soon as the Docker engine is up).
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Reach the DSS backend by its container name on the shared network,
+      # not via localhost (which would point at THIS container).
+      DSS_API_URL: http://dss-demo:8080
+      MAX_UPLOAD_MB: "20"
+      DSS_TIMEOUT_MS: "60000"
+    networks:
+      - dss
+
+networks:
+  # Attach to the existing network created by the DSS compose bundle.
+  dss:
+    name: dss-demo-bundle-64_default
+    external: true

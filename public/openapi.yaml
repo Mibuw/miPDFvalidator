@@ -1,0 +1,404 @@
+openapi: 3.1.0
+info:
+  title: miPDFValidator API
+  version: "1.0.0"
+  description: |
+    REST API to verify electronic signatures (PAdES, XAdES, CAdES, ASiC) via an
+    ETSI DSS backend and receive a **PDF verification report** — including OCSP,
+    CRL and timestamp checks.
+
+    The primary endpoint is `POST /api/v1/verify`: upload a signed document and
+    get the PDF report back directly. It also supports `format=json` to receive
+    the structured report instead.
+  license:
+    name: Proprietary
+servers:
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: Verification
+    description: Verify signed documents and generate reports
+
+paths:
+  /api/v1/verify:
+    post:
+      tags: [Verification]
+      summary: Verify a signed document and return a PDF report
+      description: |
+        Accepts a signed document, validates it against the DSS backend and
+        returns a PDF verification report (default) or the structured JSON report.
+
+        Two ways to send the document:
+        * **multipart/form-data** with a `file` field (recommended, allows an
+          optional `originalDocument` for detached signatures).
+        * **raw body** (e.g. `Content-Type: application/pdf`) with the file name
+          supplied via the `filename` query parameter or the `X-Filename` header.
+
+        The signature format is detected automatically by DSS.
+      operationId: verifyDocument
+      parameters:
+        - name: lang
+          in: query
+          description: Language of the generated PDF report.
+          required: false
+          schema:
+            type: string
+            enum: [de, en]
+            default: de
+        - name: format
+          in: query
+          description: |
+            Response format. `pdf` (default) returns the report as a PDF;
+            `json` returns the structured report. Content negotiation via the
+            `Accept` header is also honoured.
+          required: false
+          schema:
+            type: string
+            enum: [pdf, json]
+            default: pdf
+        - name: filename
+          in: query
+          description: File name to use when the document is sent as a raw body.
+          required: false
+          schema:
+            type: string
+        - name: X-Filename
+          in: header
+          description: Alternative to the `filename` query parameter for raw-body uploads.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The signed document to verify.
+                originalDocument:
+                  type: string
+                  format: binary
+                  description: Optional original document for detached signatures.
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+            description: Raw document bytes (also works for XML, ASiC, p7m, …).
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: |
+            Verification completed. Returns the PDF report or the JSON report
+            depending on `format`. For PDF responses the headline result is also
+            exposed via response headers.
+          headers:
+            X-Verification-Indication:
+              description: Overall indication, e.g. TOTAL_PASSED / INDETERMINATE / TOTAL_FAILED.
+              schema:
+                type: string
+            X-Valid-Signatures:
+              description: Number of valid signatures.
+              schema:
+                type: integer
+            X-Total-Signatures:
+              description: Total number of signatures found.
+              schema:
+                type: integer
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationResponse"
+        "400":
+          description: Invalid request (missing/empty file, unreadable body).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: Payload too large (exceeds MAX_UPLOAD_MB).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: DSS backend unreachable or returned an error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Unexpected error during verification or PDF rendering.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/validate:
+    post:
+      tags: [Verification]
+      summary: Verify a document and return the structured JSON report (web UI)
+      description: |
+        Used by the web frontend. Accepts multipart/form-data with a `file`
+        field and returns the normalized report plus the raw DSS reports.
+      operationId: validateDocument
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                originalDocument:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Structured verification result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationResponse"
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/report:
+    post:
+      tags: [Verification]
+      summary: Render a PDF report from a normalized report object
+      description: |
+        Renders a PDF from a previously obtained normalized report (as returned
+        by `/api/validate` or `/api/v1/verify?format=json`). Used by the web
+        frontend for the "Download PDF" action.
+      operationId: renderReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [report]
+              properties:
+                report:
+                  $ref: "#/components/schemas/NormalizedReport"
+                locale:
+                  type: string
+                  enum: [de, en]
+                  default: de
+      responses:
+        "200":
+          description: The rendered PDF report.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing or malformed report payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        detail:
+          type: string
+          description: Optional additional detail (e.g. backend response).
+      required: [error]
+
+    ValidationResponse:
+      type: object
+      properties:
+        report:
+          $ref: "#/components/schemas/NormalizedReport"
+        raw:
+          type: object
+          description: Raw DSS reports (SimpleReport, DiagnosticData, DetailedReport, …).
+          additionalProperties: true
+      required: [report, raw]
+
+    NormalizedReport:
+      type: object
+      properties:
+        documentName:
+          type: string
+        validationTime:
+          type: string
+          format: date-time
+        signaturesCount:
+          type: integer
+        validSignaturesCount:
+          type: integer
+        containerType:
+          type: string
+          nullable: true
+        policyName:
+          type: string
+        policyDescription:
+          type: string
+        overallIndication:
+          type: string
+          example: TOTAL_PASSED
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/NormalizedToken"
+        revocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/NormalizedRevocation"
+      required: [signaturesCount, validSignaturesCount, overallIndication, tokens, revocations]
+
+    NormalizedToken:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [signature, timestamp, evidenceRecord]
+        id:
+          type: string
+        filename:
+          type: string
+        format:
+          type: string
+          example: PAdES-BASELINE-T
+        indication:
+          type: string
+        subIndication:
+          type: string
+        signingTime:
+          type: string
+          format: date-time
+        bestSignatureTime:
+          type: string
+          format: date-time
+        signedBy:
+          type: string
+        signatureLevel:
+          type: string
+        signatureLevelDescription:
+          type: string
+        errors:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        infos:
+          type: array
+          items: { type: string }
+        certificateChain:
+          type: array
+          items:
+            $ref: "#/components/schemas/Certificate"
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scope"
+        timestamps:
+          type: array
+          items:
+            $ref: "#/components/schemas/InnerTimestamp"
+        pdf:
+          $ref: "#/components/schemas/PdfInfo"
+        crypto:
+          $ref: "#/components/schemas/Crypto"
+        signerCertificate:
+          $ref: "#/components/schemas/SignerCertificate"
+      required: [kind, id, indication]
+
+    Certificate:
+      type: object
+      properties:
+        id: { type: string }
+        qualifiedName: { type: string }
+        trusted: { type: boolean }
+
+    Scope:
+      type: object
+      properties:
+        name: { type: string }
+        scope: { type: string }
+        value: { type: string }
+
+    InnerTimestamp:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, example: SIGNATURE_TIMESTAMP }
+        productionTime: { type: string, format: date-time }
+        indication: { type: string }
+        subIndication: { type: string }
+        digestAlgorithm: { type: string, example: SHA256 }
+        producedBy: { type: string, description: "Issuing Time Stamping Authority (TSA)." }
+
+    PdfInfo:
+      type: object
+      description: PDF signature dictionary details (PAdES-specific).
+      properties:
+        reason: { type: string, example: "QES via ID-Austria" }
+        location: { type: string }
+        contactInfo: { type: string }
+        signerName: { type: string }
+        fieldName: { type: string }
+        filter: { type: string, example: "Adobe.PPKLite" }
+        subFilter: { type: string, example: "ETSI.CAdES.detached" }
+
+    Crypto:
+      type: object
+      properties:
+        encryptionAlgorithm: { type: string, example: ECDSA }
+        digestAlgorithm: { type: string, example: SHA256 }
+        keyLength: { type: string, example: "256" }
+        maskGenerationFunction: { type: string }
+        signatureIntact: { type: boolean }
+        signatureValid: { type: boolean }
+
+    SignerCertificate:
+      type: object
+      properties:
+        commonName: { type: string }
+        issuer: { type: string }
+        serialNumber: { type: string }
+        notBefore: { type: string, format: date-time }
+        notAfter: { type: string, format: date-time }
+        country: { type: string }
+
+    NormalizedRevocation:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [OCSP, CRL] }
+        origin: { type: string }
+        productionDate: { type: string, format: date-time }
+        thisUpdate: { type: string, format: date-time }
+        nextUpdate: { type: string, format: date-time }
+        status: { type: string, example: GOOD }
+        revocationReason: { type: string }
+        forCertificate: { type: string }
