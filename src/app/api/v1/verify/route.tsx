@@ -95,7 +95,8 @@ class PayloadTooLarge extends Error {}
  * Response: application/pdf (default) or application/json (`format=json`).
  */
 export async function POST(req: NextRequest) {
-  const log = logger.child({ route: "/api/v1/verify", reqId: newRequestId() });
+  // channel "api": public REST endpoint for external clients.
+  const log = logger.child({ channel: "api", route: "/api/v1/verify", reqId: newRequestId() });
   const startedAt = Date.now();
   const locale = resolveLocale(req);
   const format = resolveFormat(req);

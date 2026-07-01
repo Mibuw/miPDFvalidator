@@ -180,20 +180,29 @@ Fehler werden als JSON zurückgegeben: `400` (ungültige Anfrage), `413` (zu gro
 
 ## Logging
 
-Alle API-Routen und der DSS-Client schreiben **strukturierte Logs** – eine JSON-Zeile pro
+Alle Routen und der DSS-Client schreiben **strukturierte Logs** – eine JSON-Zeile pro
 Ereignis nach `stdout`/`stderr`, ideal für `docker compose logs` und Log-Collectors
 (Loki, ELK …). Jede Anfrage erhält eine `reqId`, über die sich alle zugehörigen Zeilen
 (Eingang → DSS-Aufruf inkl. Timing → Ergebnis/Fehler) korrelieren lassen.
 
+Jede Zeile ist über das Feld **`channel`** nach Herkunft getrennt:
+
+| `channel` | Routen | Quelle |
+| --- | --- | --- |
+| `web` | `/api/validate`, `/api/report` | vom Browser-Frontend aufgerufen |
+| `api` | `/api/v1/verify` | öffentliche REST-Schnittstelle (externe Clients) |
+
 ```bash
-docker compose logs -f mipdfvalidator          # live
-docker compose logs mipdfvalidator | grep '"level":"error"'   # nur Fehler
+docker compose logs -f mipdfvalidator                          # live
+docker compose logs mipdfvalidator | grep '"channel":"api"'    # nur öffentliche API
+docker compose logs mipdfvalidator | grep '"channel":"web"'    # nur Web-Frontend
+docker compose logs mipdfvalidator | grep '"level":"error"'    # nur Fehler
 ```
 
 Beispielzeile:
 
 ```json
-{"ts":"2026-07-01T18:13:19.482Z","level":"info","msg":"DSS validateSignature request","route":"/api/v1/verify","reqId":"e350a6c2-…","document":"dummy.pdf","strategy":"EXTRACT_ALL"}
+{"ts":"2026-07-01T18:13:19.482Z","level":"info","msg":"DSS validateSignature request","channel":"api","route":"/api/v1/verify","reqId":"e350a6c2-…","document":"dummy.pdf","strategy":"EXTRACT_ALL"}
 ```
 
 Die Ausführlichkeit steuert `LOG_LEVEL` (`debug` | `info` | `warn` | `error`, Default

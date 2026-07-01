@@ -13,7 +13,8 @@ function maxBytes(): number {
 }
 
 export async function POST(req: NextRequest) {
-  const log = logger.child({ route: "/api/validate", reqId: newRequestId() });
+  // channel "web": this route backs the browser UI (not the public REST API).
+  const log = logger.child({ channel: "web", route: "/api/validate", reqId: newRequestId() });
   const startedAt = Date.now();
 
   let form: FormData;

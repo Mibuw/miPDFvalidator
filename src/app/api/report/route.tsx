@@ -18,7 +18,8 @@ function safeFilename(name: string | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
-  const log = logger.child({ route: "/api/report", reqId: newRequestId() });
+  // channel "web": this route backs the browser UI (not the public REST API).
+  const log = logger.child({ channel: "web", route: "/api/report", reqId: newRequestId() });
   const startedAt = Date.now();
 
   let body: ReportRequest;
