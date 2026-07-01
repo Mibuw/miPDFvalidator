@@ -178,6 +178,28 @@ Fehler werden als JSON zurückgegeben: `400` (ungültige Anfrage), `413` (zu gro
 | `POST /api/validate` | Verifizierung → strukturiertes JSON (Report + DSS-Rohdaten) |
 | `POST /api/report` | PDF aus einem bereits vorhandenen Report-Objekt rendern |
 
+## Logging
+
+Alle API-Routen und der DSS-Client schreiben **strukturierte Logs** – eine JSON-Zeile pro
+Ereignis nach `stdout`/`stderr`, ideal für `docker compose logs` und Log-Collectors
+(Loki, ELK …). Jede Anfrage erhält eine `reqId`, über die sich alle zugehörigen Zeilen
+(Eingang → DSS-Aufruf inkl. Timing → Ergebnis/Fehler) korrelieren lassen.
+
+```bash
+docker compose logs -f mipdfvalidator          # live
+docker compose logs mipdfvalidator | grep '"level":"error"'   # nur Fehler
+```
+
+Beispielzeile:
+
+```json
+{"ts":"2026-07-01T18:13:19.482Z","level":"info","msg":"DSS validateSignature request","route":"/api/v1/verify","reqId":"e350a6c2-…","document":"dummy.pdf","strategy":"EXTRACT_ALL"}
+```
+
+Die Ausführlichkeit steuert `LOG_LEVEL` (`debug` | `info` | `warn` | `error`, Default
+`info`). **Dokumentinhalte werden nie geloggt** – nur Metadaten wie Dateiname, Größe,
+Timing und Ergebnis-Indikation.
+
 ## Scripts
 
 | Script | Zweck |
