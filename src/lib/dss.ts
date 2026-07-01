@@ -1,4 +1,5 @@
 import type { DssRawReports } from "./types";
+import { logger, errFields, type Logger } from "./logger";
 
 /**
  * Thin client for the DSS SOAP/REST "webapp-demo" validation service.
@@ -35,6 +36,8 @@ export interface ValidateOptions {
     | "EXTRACT_TIMESTAMPS_ONLY"
     | "EXTRACT_CERTIFICATES_ONLY"
     | "EXTRACT_REVOCATION_DATA_ONLY";
+  /** Request-scoped logger; falls back to the module logger when omitted. */
+  log?: Logger;
 }
 
 export class DssError extends Error {
@@ -67,6 +70,7 @@ function timeoutMs(): number {
  * Call DSS validateSignature. Returns the raw reports DTO (defensively typed).
  */
 export async function validateSignature(opts: ValidateOptions): Promise<DssRawReports> {
+  const log = opts.log ?? logger;
   const endpoint = `${baseUrl()}/services/rest/validation/validateSignature`;
 
   const payload = {
@@ -84,6 +88,13 @@ export async function validateSignature(opts: ValidateOptions): Promise<DssRawRe
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs());
+  const startedAt = Date.now();
+  log.info("DSS validateSignature request", {
+    endpoint,
+    document: opts.signedDocument.name,
+    strategy: opts.tokenExtractionStrategy ?? "NONE",
+    detached: (opts.originalDocuments?.length ?? 0) > 0,
+  });
 
   let res: Response;
   try {
@@ -99,9 +110,12 @@ export async function validateSignature(opts: ValidateOptions): Promise<DssRawRe
     });
   } catch (err) {
     clearTimeout(timer);
+    const ms = Date.now() - startedAt;
     if (err instanceof Error && err.name === "AbortError") {
+      log.error("DSS request timed out", { endpoint, ms, timeoutMs: timeoutMs() });
       throw new DssError(`DSS request timed out after ${timeoutMs()}ms.`, { status: 504 });
     }
+    log.error("DSS backend unreachable", { endpoint, ms, ...errFields(err) });
     throw new DssError(
       `Could not reach the DSS backend at ${endpoint}. Is the DSS Docker container running and DSS_API_URL correct?`,
       { detail: err instanceof Error ? err.message : String(err) },
@@ -111,8 +125,15 @@ export async function validateSignature(opts: ValidateOptions): Promise<DssRawRe
   }
 
   const text = await res.text();
+  const ms = Date.now() - startedAt;
 
   if (!res.ok) {
+    log.error("DSS validation returned error status", {
+      endpoint,
+      status: res.status,
+      ms,
+      bodyBytes: text.length,
+    });
     throw new DssError(`DSS validation failed (HTTP ${res.status}).`, {
       status: res.status,
       detail: text.slice(0, 2000),
@@ -120,8 +141,11 @@ export async function validateSignature(opts: ValidateOptions): Promise<DssRawRe
   }
 
   try {
-    return JSON.parse(text) as DssRawReports;
+    const parsed = JSON.parse(text) as DssRawReports;
+    log.info("DSS validateSignature ok", { status: res.status, ms, bodyBytes: text.length });
+    return parsed;
   } catch {
+    log.error("DSS returned non-JSON response", { endpoint, status: res.status, ms, bodyBytes: text.length });
     throw new DssError("DSS returned a response that is not valid JSON.", {
       status: 502,
       detail: text.slice(0, 2000),

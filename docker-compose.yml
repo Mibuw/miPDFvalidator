@@ -14,6 +14,8 @@ services:
       DSS_API_URL: http://dss-demo:8080
       MAX_UPLOAD_MB: "20"
       DSS_TIMEOUT_MS: "60000"
+      # Log verbosity: debug | info | warn | error. JSON lines to stdout.
+      LOG_LEVEL: "info"
     networks:
       - dss
 

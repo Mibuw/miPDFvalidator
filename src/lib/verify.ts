@@ -1,6 +1,7 @@
 import { validateSignature } from "./dss";
 import { normalizeReports } from "./normalize";
 import type { ValidationResponse } from "./types";
+import type { Logger } from "./logger";
 
 export interface VerifyInput {
   /** base64-encoded document bytes */
@@ -15,12 +16,13 @@ export interface VerifyInput {
  * together with the raw DSS reports. Shared by the web UI route
  * (`/api/validate`) and the public REST endpoint (`/api/v1/verify`).
  */
-export async function verifyDocument(input: VerifyInput): Promise<ValidationResponse> {
+export async function verifyDocument(input: VerifyInput, log?: Logger): Promise<ValidationResponse> {
   const raw = await validateSignature({
     signedDocument: { bytes: input.bytes, name: input.name || "document" },
     originalDocuments: input.originalDocuments?.length ? input.originalDocuments : undefined,
     // EXTRACT_ALL so DiagnosticData carries OCSP/CRL, timestamps and certificates.
     tokenExtractionStrategy: "EXTRACT_ALL",
+    log,
   });
   const report = normalizeReports(raw);
   return { report, raw };

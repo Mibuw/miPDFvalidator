@@ -3,6 +3,7 @@ import { DssError } from "@/lib/dss";
 import { verifyDocument } from "@/lib/verify";
 import { renderReportToBuffer } from "@/lib/report-pdf";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n";
+import { logger, newRequestId, errFields } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,8 @@ class PayloadTooLarge extends Error {}
  * Response: application/pdf (default) or application/json (`format=json`).
  */
 export async function POST(req: NextRequest) {
+  const log = logger.child({ route: "/api/v1/verify", reqId: newRequestId() });
+  const startedAt = Date.now();
   const locale = resolveLocale(req);
   const format = resolveFormat(req);
 
@@ -102,35 +105,49 @@ export async function POST(req: NextRequest) {
     input = await parseInput(req);
   } catch (err) {
     if (err instanceof PayloadTooLarge) {
+      log.warn("payload too large", { maxBytes: maxBytes() });
       return NextResponse.json(
         { error: `File too large. Maximum is ${process.env.MAX_UPLOAD_MB || 20} MB.` },
         { status: 413 },
       );
     }
     if (err instanceof BadRequest) {
+      log.warn("bad request", { ...errFields(err) });
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
+    log.warn("could not read body", { ...errFields(err) });
     return NextResponse.json(
       { error: "Could not read request body.", detail: err instanceof Error ? err.message : String(err) },
       { status: 400 },
     );
   }
 
+  log.info("verify request", { document: input.name, format, lang: locale, detached: (input.originalDocuments?.length ?? 0) > 0 });
+
   let result;
   try {
-    result = await verifyDocument(input);
+    result = await verifyDocument(input, log);
   } catch (err) {
     if (err instanceof DssError) {
-      return NextResponse.json(
-        { error: err.message, detail: err.detail },
-        { status: err.status && err.status >= 400 ? err.status : 502 },
-      );
+      const status = err.status && err.status >= 400 ? err.status : 502;
+      log.warn("verify failed (DSS)", { status, ms: Date.now() - startedAt, ...errFields(err) });
+      return NextResponse.json({ error: err.message, detail: err.detail }, { status });
     }
+    log.error("verify failed (unexpected)", { ms: Date.now() - startedAt, ...errFields(err) });
     return NextResponse.json(
       { error: "Verification failed.", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },
     );
   }
+
+  log.info("verify ok", {
+    document: input.name,
+    indication: result.report.overallIndication,
+    validSignatures: result.report.validSignaturesCount,
+    totalSignatures: result.report.signaturesCount,
+    format,
+    ms: Date.now() - startedAt,
+  });
 
   if (format === "json") {
     return NextResponse.json(result);
@@ -151,6 +168,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    log.error("pdf render failed", { document: input.name, ms: Date.now() - startedAt, ...errFields(err) });
     return NextResponse.json(
       { error: "Failed to render PDF report.", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 },
