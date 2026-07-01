@@ -5,6 +5,8 @@ der [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/) RE
 Dokument per Drag & Drop hochladen → Validierung über DSS → **PDF-Verifikationsreport**
 inkl. OCSP-, CRL- und Zeitstempel-Prüfung herunterladen.
 
+> **Test-Instanz:** <http://miPDFValidator.mitterbucher.com:3000> (Verfügbarkeit ohne Gewähr)
+
 ## Features
 
 - **Drag & Drop + Datei-Upload** für signierte Dokumente
