@@ -1,165 +1,164 @@
 # miPDFValidator
 
-**miPDFValidator** — ein Web-Frontend zur Prüfung elektronischer Signaturen (PAdES, XAdES, CAdES, ASiC) auf Basis
-der [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/) REST-API.
-Dokument per Drag & Drop hochladen → Validierung über DSS → **PDF-Verifikationsreport**
-inkl. OCSP-, CRL- und Zeitstempel-Prüfung herunterladen.
+**miPDFValidator** — a web frontend for validating electronic signatures (PAdES, XAdES, CAdES, ASiC)
+on top of the [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/) REST API.
+Drag & drop a document → validate it via DSS → download a **PDF verification report**
+including OCSP, CRL and timestamp checks.
 
-> **Test-Instanz:** <http://miPDFValidator.mitterbucher.com:3000> (Verfügbarkeit ohne Gewähr)
+> **Test instance:** <http://miPDFValidator.mitterbucher.com:3000> (availability not guaranteed)
 
 ## Features
 
-- **Drag & Drop + Datei-Upload** für signierte Dokumente
-- **Automatische Formaterkennung** durch DSS (PAdES / XAdES / CAdES / ASiC-S / ASiC-E)
-- **Verifikationsreport als PDF** – am DSS *Simple Report* orientiert:
-  Gesamtstatus, Signaturdetails, Zertifikatskette, Qualifikation, Signaturumfang,
-  Zeitstempel sowie **OCSP-/CRL-Sperrprüfung**
-- **Rohdaten-Export** der DSS-Reports (JSON) für Audit/Debugging
-- **Zweisprachig** (Deutsch / Englisch) – umschaltbar, Auswahl wird gespeichert
-- Robuster **Report-Normalizer**, der unterschiedliche DSS-JSON-Feldnamen
-  (PascalCase / camelCase) case-insensitiv verarbeitet
+- **Drag & drop + file upload** for signed documents
+- **Automatic format detection** by DSS (PAdES / XAdES / CAdES / ASiC-S / ASiC-E)
+- **PDF verification report** — modelled on the DSS *Simple Report*:
+  overall status, signature details, certificate chain, qualification, signature scope,
+  timestamps and **OCSP/CRL revocation checks**
+- **Raw data export** of the DSS reports (JSON) for audit/debugging
+- **Bilingual** (German / English) — switchable, selection is persisted
+- Robust **report normalizer** that handles varying DSS JSON field names
+  (PascalCase / camelCase) case-insensitively
 
-## Architektur
+## Architecture
 
 ```
 Browser (Next.js / React)
-   │  multipart Upload
+   │  multipart upload
    ▼
 /api/validate  ──► DSS REST  POST /services/rest/validation/validateSignature
-   │  (normalisiert SimpleReport + DiagnosticData)
+   │  (normalizes SimpleReport + DiagnosticData)
    ▼
-/api/report    ──► rendert PDF via @react-pdf/renderer
+/api/report    ──► renders PDF via @react-pdf/renderer
 ```
 
-Die Anwendung ruft **nur die Validation-/Verification-API** von DSS auf. Der DSS-Endpoint
-(deine eigene Docker-Instanz) wird per Umgebungsvariable konfiguriert – es werden keine
-Dokumente an öffentliche Dienste gesendet.
+The application only calls the DSS **validation/verification API**. The DSS endpoint
+(your own Docker instance) is configured via an environment variable — no documents are
+sent to any public service.
 
-## Voraussetzungen
+## Prerequisites
 
-1. **Node.js ≥ 18** (getestet mit Node 24) — bzw. **Docker** (siehe [Deployment](#deployment-docker))
-2. Eine laufende **DSS-Instanz** mit REST-Services.
+1. **Node.js ≥ 18** (tested with Node 24) — or **Docker** (see [Deployment](#deployment-docker))
+2. A running **DSS instance** with REST services.
 
-   miPDFValidator ist **nur ein Client** — es enthält kein DSS. Das Backend stammt aus dem
-   Projekt **EU Digital Signature Service (DSS)** der Europäischen Kommission:
+   miPDFValidator is **only a client** — it does not contain DSS. The backend comes from the
+   **EU Digital Signature Service (DSS)** project by the European Commission:
 
-   - Quellcode & Doku: <https://github.com/esig/dss>
-   - Fertige **Demo-Bundles** (enthalten die `dss-demo-webapp`, u. a. als `.war`) zum Download:
-     [`dss-demo-bundle` im EU-Maven-Repository][dss-bundle]
+   - Source & docs: <https://github.com/esig/dss>
+   - Ready-made **demo bundles** (contain the `dss-demo-webapp`, e.g. as a `.war`) for download:
+     [`dss-demo-bundle` in the EU Maven repository][dss-bundle]
 
    [dss-bundle]: https://ec.europa.eu/digital-building-blocks/artifact/service/rest/repository/browse/esignaturedss/eu/europa/ec/joinup/sd-dss/dss-demo-bundle/
 
-   Ein typisches Docker-Setup legt das `ROOT.war` (aus dem Bundle) in ein offizielles
-   Tomcat-/JDK-Image und startet DSS auf Port `8080`:
+   A typical Docker setup drops the `ROOT.war` (from the bundle) into an official
+   Tomcat/JDK image and starts DSS on port `8080`:
 
    ```bash
-   docker compose up -d --build      # startet DSS auf :8080
-   docker compose logs -f            # DSS lädt beim Start die EU-Trusted-Lists
+   docker compose up -d --build      # starts DSS on :8080
+   docker compose logs -f            # DSS loads the EU trusted lists on startup
    ```
 
-   Die REST-Services müssen unter `http://<host>:8080/services/rest/...` erreichbar sein.
+   The REST services must be reachable at `http://<host>:8080/services/rest/...`.
 
-## Einrichtung
+## Setup
 
 ```bash
 npm install
-cp .env.example .env.local     # danach DSS_API_URL anpassen
+cp .env.example .env.local     # then adjust DSS_API_URL
 npm run dev
 ```
 
 `.env.local`:
 
 ```env
-DSS_API_URL=http://localhost:8080   # Basis-URL deiner DSS-Instanz (ohne / am Ende)
+DSS_API_URL=http://localhost:8080   # base URL of your DSS instance (no trailing /)
 MAX_UPLOAD_MB=20
 DSS_TIMEOUT_MS=60000
 ```
 
-App öffnet unter <http://localhost:3000>.
+The app opens at <http://localhost:3000>.
 
 ## Deployment (Docker)
 
-Für den Dauerbetrieb liegt ein produktionsfertiges Docker-Setup bei: ein Multi-Stage-Build
-auf Basis des Next.js **standalone**-Outputs (schlankes Image, non-root) und eine
-`docker-compose.yml` mit `restart: unless-stopped`.
+A production-ready Docker setup is included for permanent operation: a multi-stage build
+based on the Next.js **standalone** output (slim image, non-root) and a
+`docker-compose.yml` with `restart: unless-stopped`.
 
 ```bash
-docker compose up -d --build     # Image bauen + Container starten
-docker compose logs -f           # Logs
-docker compose down              # stoppen & entfernen
+docker compose up -d --build     # build image + start container
+docker compose logs -f           # logs
+docker compose down              # stop & remove
 ```
 
-Danach läuft die App unter <http://localhost:3000> und kommt nach einem Reboot
-automatisch wieder hoch (sobald die Docker-Engine läuft).
+The app then runs at <http://localhost:3000> and comes back up automatically after a
+reboot (once the Docker engine is up).
 
-### Netzwerk zum DSS-Backend
+### Networking to the DSS backend
 
-Läuft **DSS ebenfalls als Container**, darf der App-Container DSS **nicht** über
-`localhost` ansprechen (das zeigt auf den App-Container selbst), sondern über den
-**Container-/Servicenamen** im gemeinsamen Docker-Netzwerk. Die mitgelieferte
-`docker-compose.yml` hängt die App an das externe DSS-Netzwerk und setzt entsprechend:
+If **DSS also runs as a container**, the app container must **not** reach DSS via
+`localhost` (that points at the app container itself), but via the **container/service
+name** on the shared Docker network. The bundled `docker-compose.yml` attaches the app to
+the external DSS network and sets accordingly:
 
 ```yaml
 environment:
-  DSS_API_URL: http://dss-demo:8080   # Container-Name der DSS-Instanz
+  DSS_API_URL: http://dss-demo:8080   # container name of the DSS instance
 networks:
   dss:
-    name: dss-demo-bundle-64_default  # ggf. an dein DSS-Netzwerk anpassen
+    name: dss-demo-bundle-64_default  # adjust to your DSS network if needed
     external: true
 ```
 
-Netzwerk- und Container-Namen prüfst du mit `docker network ls` bzw. `docker ps`.
-Läuft DSS **nicht** in Docker, sondern direkt auf dem Host, verwende
+Check network and container names with `docker network ls` and `docker ps`.
+If DSS does **not** run in Docker but directly on the host, use
 `DSS_API_URL: http://host.docker.internal:8080`.
 
-## Nutzung
+## Usage
 
-1. Signiertes Dokument per Drag & Drop ablegen oder auswählen
-2. **Signatur prüfen** klicken
-3. Ergebnis wird angezeigt (Gesamtstatus, Signaturen, Sperrprüfung)
-4. **PDF-Report herunterladen** – enthält alle Prüfdetails inkl. OCSP/CRL/Timestamp
+1. Drop or select a signed document
+2. Click **Verify signature**
+3. The result is shown (overall status, signatures, revocation check)
+4. **Download the PDF report** — contains all verification details incl. OCSP/CRL/timestamp
 
-## REST-API
+## REST API
 
-Neben dem Web-Frontend steht eine REST-API bereit, die ein Dokument entgegennimmt,
-verifiziert und direkt den **PDF-Report** zurückgibt.
+Besides the web frontend, a REST API is available that accepts a document, verifies it
+and returns the **PDF report** directly.
 
-- **Interaktive Doku (Redoc):** <http://localhost:3000/docs>
-- **OpenAPI-Spezifikation:** [`/openapi.yaml`](public/openapi.yaml)
+- **Interactive docs (Redoc):** <http://localhost:3000/docs>
+- **OpenAPI specification:** [`/openapi.yaml`](public/openapi.yaml)
 
 ### `POST /api/v1/verify`
 
-Verifiziert ein signiertes Dokument und liefert einen PDF-Report (Standard) oder das
-strukturierte JSON.
+Verifies a signed document and returns a PDF report (default) or the structured JSON.
 
-**Query-Parameter**
+**Query parameters**
 
-| Parameter | Werte | Default | Beschreibung |
+| Parameter | Values | Default | Description |
 | --- | --- | --- | --- |
-| `lang` | `de`, `en` | `de` | Sprache des PDF-Reports |
-| `format` | `pdf`, `json` | `pdf` | Antwortformat (auch via `Accept`-Header) |
-| `filename` | String | `document` | Dateiname bei Raw-Body-Upload |
+| `lang` | `de`, `en` | `de` | language of the PDF report |
+| `format` | `pdf`, `json` | `pdf` | response format (also via `Accept` header) |
+| `filename` | string | `document` | file name for raw-body uploads |
 
-**Antwort-Header (bei PDF)**: `X-Verification-Indication`, `X-Valid-Signatures`,
-`X-Total-Signatures` — so kann ein Client das Gesamtergebnis auswerten, ohne das PDF zu parsen.
+**Response headers (for PDF)**: `X-Verification-Indication`, `X-Valid-Signatures`,
+`X-Total-Signatures` — so a client can evaluate the overall result without parsing the PDF.
 
-**Beispiel – multipart, PDF zurück:**
+**Example — multipart, PDF response:**
 
 ```bash
-curl -X POST "http://localhost:3000/api/v1/verify?lang=de" \
-  -F "file=@signiert.pdf" \
+curl -X POST "http://localhost:3000/api/v1/verify?lang=en" \
+  -F "file=@signed.pdf" \
   -o verification-report.pdf
 ```
 
-**Beispiel – Raw-Body, JSON zurück:**
+**Example — raw body, JSON response:**
 
 ```bash
-curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signiert.pdf" \
+curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signed.pdf" \
   -H "Content-Type: application/pdf" \
-  --data-binary "@signiert.pdf"
+  --data-binary "@signed.pdf"
 ```
 
-**Detached-Signatur** (separates Originaldokument):
+**Detached signature** (separate original document):
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify" \
@@ -168,83 +167,81 @@ curl -X POST "http://localhost:3000/api/v1/verify" \
   -o report.pdf
 ```
 
-Fehler werden als JSON zurückgegeben: `400` (ungültige Anfrage), `413` (zu groß),
-`502` (DSS nicht erreichbar), `500` (unerwartet).
+Errors are returned as JSON: `400` (bad request), `413` (too large),
+`502` (DSS unreachable), `500` (unexpected).
 
-### Weitere Endpunkte (vom Frontend genutzt)
+### Other endpoints (used by the frontend)
 
-| Endpoint | Zweck |
+| Endpoint | Purpose |
 | --- | --- |
-| `POST /api/validate` | Verifizierung → strukturiertes JSON (Report + DSS-Rohdaten) |
-| `POST /api/report` | PDF aus einem bereits vorhandenen Report-Objekt rendern |
+| `POST /api/validate` | verification → structured JSON (report + raw DSS data) |
+| `POST /api/report` | render a PDF from an existing report object |
 
 ## Logging
 
-Alle Routen und der DSS-Client schreiben **strukturierte Logs** – eine JSON-Zeile pro
-Ereignis nach `stdout`/`stderr`, ideal für `docker compose logs` und Log-Collectors
-(Loki, ELK …). Jede Anfrage erhält eine `reqId`, über die sich alle zugehörigen Zeilen
-(Eingang → DSS-Aufruf inkl. Timing → Ergebnis/Fehler) korrelieren lassen.
+All routes and the DSS client emit **structured logs** — one JSON line per event to
+`stdout`/`stderr`, ideal for `docker compose logs` and log collectors (Loki, ELK …).
+Each request gets a `reqId` that correlates all of its lines
+(request → DSS call incl. timing → result/error).
 
-Jede Zeile ist über das Feld **`channel`** nach Herkunft getrennt:
+Every line is separated by origin via the **`channel`** field:
 
-| `channel` | Routen | Quelle |
+| `channel` | Routes | Origin |
 | --- | --- | --- |
-| `web` | `/api/validate`, `/api/report` | vom Browser-Frontend aufgerufen |
-| `api` | `/api/v1/verify` | öffentliche REST-Schnittstelle (externe Clients) |
+| `web` | `/api/validate`, `/api/report` | called by the browser frontend |
+| `api` | `/api/v1/verify` | public REST API (external clients) |
 
 ```bash
 docker compose logs -f mipdfvalidator                          # live
-docker compose logs mipdfvalidator | grep '"channel":"api"'    # nur öffentliche API
-docker compose logs mipdfvalidator | grep '"channel":"web"'    # nur Web-Frontend
-docker compose logs mipdfvalidator | grep '"level":"error"'    # nur Fehler
+docker compose logs mipdfvalidator | grep '"channel":"api"'    # public API only
+docker compose logs mipdfvalidator | grep '"channel":"web"'    # web frontend only
+docker compose logs mipdfvalidator | grep '"level":"error"'    # errors only
 ```
 
-Beispielzeile:
+Example line:
 
 ```json
 {"ts":"2026-07-01T18:13:19.482Z","level":"info","msg":"DSS validateSignature request","channel":"api","route":"/api/v1/verify","reqId":"e350a6c2-…","document":"dummy.pdf","strategy":"EXTRACT_ALL"}
 ```
 
-Die Ausführlichkeit steuert `LOG_LEVEL` (`debug` | `info` | `warn` | `error`, Default
-`info`). **Dokumentinhalte werden nie geloggt** – nur Metadaten wie Dateiname, Größe,
-Timing und Ergebnis-Indikation.
+Verbosity is controlled by `LOG_LEVEL` (`debug` | `info` | `warn` | `error`, default
+`info`). **Document contents are never logged** — only metadata such as file name, size,
+timing and result indication.
 
 ## Scripts
 
-| Script | Zweck |
+| Script | Purpose |
 | --- | --- |
-| `npm run dev` | Entwicklungsserver |
-| `npm run build` | Produktions-Build |
-| `npm run start` | Produktionsserver |
-| `npm run typecheck` | TypeScript-Prüfung ohne Emit |
+| `npm run dev` | development server |
+| `npm run build` | production build |
+| `npm run start` | production server |
+| `npm run typecheck` | TypeScript check without emit |
 
-## Hinweise zur DSS-JSON-Kompatibilität
+## Notes on DSS JSON compatibility
 
-Die JSON-Feldnamen der DSS-Reports können je nach DSS-Version leicht abweichen. Der
-Normalizer in [`src/lib/normalize.ts`](src/lib/normalize.ts) liest Felder deshalb
-case-insensitiv und akzeptiert mehrere Kandidatennamen. Falls in deiner DSS-Version ein
-Feld anders heißt, lässt sich das dort punktuell ergänzen; die DSS-Rohdaten sind zudem
-über den JSON-Export einsehbar.
+The JSON field names of DSS reports can vary slightly between DSS versions. The normalizer
+in [`src/lib/normalize.ts`](src/lib/normalize.ts) therefore reads fields case-insensitively
+and accepts several candidate names. If a field is named differently in your DSS version,
+it can be added there selectively; the raw DSS data is also available via the JSON export.
 
 ## Tech Stack
 
 Next.js 16 · React 19 · TypeScript · Tailwind CSS · Framer Motion · @react-pdf/renderer
 
-## Lizenz & Danksagung
+## License & acknowledgements
 
-Der Code von **miPDFValidator** steht unter der **MIT-Lizenz** — siehe [`LICENSE`](LICENSE).
+The **miPDFValidator** code is licensed under the **MIT License** — see [`LICENSE`](LICENSE).
 
-miPDFValidator ist ein eigenständiger REST-Client und enthält keinen DSS-Code. Die
-eigentliche Signaturprüfung leistet das Projekt **EU Digital Signature Service (DSS)**:
+miPDFValidator is a standalone REST client and contains no DSS code. The actual signature
+validation is performed by the **EU Digital Signature Service (DSS)** project:
 
-- **DSS** — © European Commission, lizenziert unter **LGPL-2.1**.
-  Quellcode: <https://github.com/esig/dss> ·
-  Demo-Bundles: [EU-Maven-Repository][dss-bundle]
+- **DSS** — © European Commission, licensed under **LGPL-2.1**.
+  Source: <https://github.com/esig/dss> ·
+  Demo bundles: [EU Maven repository][dss-bundle]
 
-DSS wird ausschließlich als externer Dienst über dessen REST-API angesprochen (kein
-Linking, kein Bundling), weshalb die MIT-Lizenz dieses Projekts und die LGPL-2.1 von DSS
-unabhängig nebeneinander bestehen. Alle Rechte an DSS verbleiben bei der Europäischen
-Union bzw. den jeweiligen Urhebern.
+DSS is accessed exclusively as an external service via its REST API (no linking, no
+bundling), so this project's MIT license and DSS's LGPL-2.1 coexist independently. All
+rights to DSS remain with the European Union and the respective authors.
 
-Die verwendeten Web-Abhängigkeiten (Next.js, React, @react-pdf/renderer, Framer Motion,
-Tailwind CSS) stehen unter der MIT-Lizenz, TypeScript unter Apache-2.0.
+The web dependencies used (Next.js, React, @react-pdf/renderer, Framer Motion,
+Tailwind CSS) are licensed under MIT, TypeScript under Apache-2.0.
