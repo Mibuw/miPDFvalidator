@@ -1,11 +1,11 @@
-# miPDFValidator
+# miPDFvalidator
 
-**miPDFValidator** — a web frontend for validating electronic signatures (PAdES, XAdES, CAdES, ASiC)
+**miPDFvalidator** — a web frontend for validating electronic signatures (PAdES, XAdES, CAdES, ASiC)
 on top of the [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/) REST API.
 Drag & drop a document → validate it via DSS → download a **PDF verification report**
 including OCSP, CRL and timestamp checks.
 
-> **Test instance:** <http://miPDFValidator.mitterbucher.com:3000> (availability not guaranteed)
+> **Test instance:** <http://miPDFvalidator.mitterbucher.com:3000> (availability not guaranteed)
 
 ## Features
 
@@ -40,7 +40,7 @@ sent to any public service.
 1. **Node.js ≥ 18** (tested with Node 24) — or **Docker** (see [Deployment](#deployment-docker))
 2. A running **DSS instance** with REST services.
 
-   miPDFValidator is **only a client** — it does not contain DSS. The backend comes from the
+   miPDFvalidator is **only a client** — it does not contain DSS. The backend comes from the
    **EU Digital Signature Service (DSS)** project by the European Commission:
 
    - Source & docs: <https://github.com/esig/dss>
@@ -230,9 +230,9 @@ Next.js 16 · React 19 · TypeScript · Tailwind CSS · Framer Motion · @react-
 
 ## License & acknowledgements
 
-The **miPDFValidator** code is licensed under the **MIT License** — see [`LICENSE`](LICENSE).
+The **miPDFvalidator** code is licensed under the **MIT License** — see [`LICENSE`](LICENSE).
 
-miPDFValidator is a standalone REST client and contains no DSS code. The actual signature
+miPDFvalidator is a standalone REST client and contains no DSS code. The actual signature
 validation is performed by the **EU Digital Signature Service (DSS)** project:
 
 - **DSS** — © European Commission, licensed under **LGPL-2.1**.

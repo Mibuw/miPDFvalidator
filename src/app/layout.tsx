@@ -6,9 +6,9 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "miPDFValidator",
+  title: "miPDFvalidator",
   description:
-    "miPDFValidator — validate electronic signatures (PAdES, XAdES, CAdES, ASiC) via ETSI DSS and download a PDF report.",
+    "miPDFvalidator — validate electronic signatures (PAdES, XAdES, CAdES, ASiC) via ETSI DSS and download a PDF report.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

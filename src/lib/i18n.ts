@@ -9,7 +9,7 @@ export const DEFAULT_LOCALE: Locale = "de";
  */
 export const messages = {
   de: {
-    "app.title": "miPDFValidator",
+    "app.title": "miPDFvalidator",
     "app.subtitle": "Elektronische Signaturen prüfen — auf Basis von eIDAS / ETSI DSS",
     "upload.headline": "Dokument zur Signaturprüfung hochladen",
     "upload.dnd": "Datei hierher ziehen oder klicken zum Auswählen",
@@ -91,7 +91,7 @@ export const messages = {
     "report.generated": "Erstellt am",
     "report.page": "Seite",
     "report.of": "von",
-    "report.footer": "Erstellt mit miPDFValidator · basierend auf ETSI DSS",
+    "report.footer": "Erstellt mit miPDFvalidator · basierend auf ETSI DSS",
     "report.summary": "Zusammenfassung",
     "report.details": "Signaturdetails",
 
@@ -103,7 +103,7 @@ export const messages = {
     "indication.NO_SIGNATURE_FOUND": "Keine Signatur gefunden",
   },
   en: {
-    "app.title": "miPDFValidator",
+    "app.title": "miPDFvalidator",
     "app.subtitle": "Validate electronic signatures — powered by eIDAS / ETSI DSS",
     "upload.headline": "Upload a document for signature validation",
     "upload.dnd": "Drag a file here or click to select",
@@ -185,7 +185,7 @@ export const messages = {
     "report.generated": "Generated at",
     "report.page": "Page",
     "report.of": "of",
-    "report.footer": "Generated with miPDFValidator · based on ETSI DSS",
+    "report.footer": "Generated with miPDFvalidator · based on ETSI DSS",
     "report.summary": "Summary",
     "report.details": "Signature details",
 

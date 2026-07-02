@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: miPDFValidator API
+  title: miPDFvalidator API
   version: "1.0.0"
   description: |
     REST API to verify electronic signatures (PAdES, XAdES, CAdES, ASiC) via an

@@ -321,7 +321,7 @@ export function ReportDocument({ report, locale }: { report: NormalizedReport; l
   return (
     <Document
       title={`${t("report.heading")} — ${report.documentName ?? ""}`}
-      author="miPDFValidator"
+      author="miPDFvalidator"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header} fixed>
