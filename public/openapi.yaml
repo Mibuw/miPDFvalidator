@@ -11,7 +11,8 @@ info:
     get the PDF report back directly. It also supports `format=json` to receive
     the structured report instead.
   license:
-    name: Proprietary
+    name: MIT
+    identifier: MIT
 servers:
   - url: http://localhost:3000
     description: Local development
