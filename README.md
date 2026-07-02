@@ -1,5 +1,7 @@
 # miPDFvalidator
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![Docker on GHCR](https://img.shields.io/badge/GHCR-mibuw%2Fmipdfvalidator-2496ED?logo=docker&logoColor=white)](https://github.com/Mibuw/miPDFvalidator/pkgs/container/mipdfvalidator)
+
 **miPDFvalidator** — a web frontend for validating electronic signatures (PAdES, XAdES, CAdES, ASiC)
 on top of the [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/) REST API.
 Drag & drop a document → validate it via DSS → download a **PDF verification report**
@@ -245,3 +247,13 @@ rights to DSS remain with the European Union and the respective authors.
 
 The web dependencies used (Next.js, React, @react-pdf/renderer, Framer Motion,
 Tailwind CSS) are licensed under MIT, TypeScript under Apache-2.0.
+
+---
+
+## Author
+
+**Wolfgang Mitterbucher** — Software Engineering & Digital Identity, Leonding (Austria)
+
+🌐 [www.mitterbucher.com](https://www.mitterbucher.com) · 💼 [LinkedIn](https://at.linkedin.com/in/wolfgangmitterbucher) · ✉️ office@mitterbucher.com
+
+**More open-source projects:** [miPDFconvert](https://github.com/Mibuw/miPDFconvert) · [miPDFvalidator](https://github.com/Mibuw/miPDFvalidator) · [miEUDIverifier](https://github.com/Mibuw/miEUDIverifier)
