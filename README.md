@@ -7,7 +7,7 @@ on top of the [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp
 Drag & drop a document → validate it via DSS → download a **PDF verification report**
 including OCSP, CRL and timestamp checks.
 
-> **Live instance:** <https://validator.cloud-signing.com> (availability not guaranteed)
+> **Live instance:** <https://miPDFvalidator.mitterbucher.com> (availability not guaranteed)
 
 ## Features
 
