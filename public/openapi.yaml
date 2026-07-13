@@ -14,6 +14,8 @@ info:
     name: MIT
     identifier: MIT
 servers:
+  - url: https://validator.cloud-signing.com
+    description: Production
   - url: http://localhost:3000
     description: Local development
 tags:
