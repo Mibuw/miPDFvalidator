@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DssError } from "@/lib/dss";
 import { verifyDocument } from "@/lib/verify";
 import { logger, newRequestId, errFields } from "@/lib/logger";
+import { isAuthorized, unauthorized } from "@/lib/auth";
 
 // The DSS client uses Node core (Buffer, fetch abort) — force the Node runtime.
 export const runtime = "nodejs";
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
   // channel "web": this route backs the browser UI (not the public REST API).
   const log = logger.child({ channel: "web", route: "/api/validate", reqId: newRequestId() });
   const startedAt = Date.now();
+
+  if (!isAuthorized(req)) {
+    log.warn("unauthorized");
+    return unauthorized();
+  }
 
   let form: FormData;
   try {

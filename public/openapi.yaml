@@ -10,6 +10,9 @@ info:
     The primary endpoint is `POST /api/v1/verify`: upload a signed document and
     get the PDF report back directly. It also supports `format=json` to receive
     the structured report instead.
+
+    **Authentication:** all endpoints require an API key, sent either via the
+    `X-API-Key` header or as `Authorization: Bearer <key>`.
   license:
     name: MIT
     identifier: MIT
@@ -21,6 +24,12 @@ servers:
 tags:
   - name: Verification
     description: Verify signed documents and generate reports
+
+# Every operation requires an API key (enforced when the server sets API_KEYS).
+# Either scheme satisfies the requirement.
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
 
 paths:
   /api/v1/verify:
@@ -129,6 +138,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "413":
           description: Payload too large (exceeds MAX_UPLOAD_MB).
           content:
@@ -183,6 +194,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/report:
     post:
@@ -221,8 +234,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key sent in the `X-API-Key` request header.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key sent as `Authorization: Bearer <key>`.
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Error:
       type: object

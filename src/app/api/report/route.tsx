@@ -3,6 +3,7 @@ import { renderReportToBuffer } from "@/lib/report-pdf";
 import type { NormalizedReport } from "@/lib/types";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n";
 import { logger, newRequestId, errFields } from "@/lib/logger";
+import { isAuthorized, unauthorized } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
   // channel "web": this route backs the browser UI (not the public REST API).
   const log = logger.child({ channel: "web", route: "/api/report", reqId: newRequestId() });
   const startedAt = Date.now();
+
+  if (!isAuthorized(req)) {
+    log.warn("unauthorized");
+    return unauthorized();
+  }
 
   let body: ReportRequest;
   try {

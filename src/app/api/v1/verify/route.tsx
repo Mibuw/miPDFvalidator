@@ -4,6 +4,7 @@ import { verifyDocument } from "@/lib/verify";
 import { renderReportToBuffer } from "@/lib/report-pdf";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/lib/i18n";
 import { logger, newRequestId, errFields } from "@/lib/logger";
+import { isAuthorized, unauthorized } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -98,6 +99,12 @@ export async function POST(req: NextRequest) {
   // channel "api": public REST endpoint for external clients.
   const log = logger.child({ channel: "api", route: "/api/v1/verify", reqId: newRequestId() });
   const startedAt = Date.now();
+
+  if (!isAuthorized(req)) {
+    log.warn("unauthorized");
+    return unauthorized();
+  }
+
   const locale = resolveLocale(req);
   const format = resolveFormat(req);
 

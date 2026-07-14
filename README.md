@@ -129,6 +129,21 @@ and returns the **PDF report** directly.
 - **Interactive docs (Redoc):** <http://localhost:3000/docs>
 - **OpenAPI specification:** [`/openapi.yaml`](public/openapi.yaml)
 
+### Authentication
+
+When the server is configured with `API_KEYS` (comma-separated list, see
+[`.env.example`](.env.example)), **all** `/api/*` endpoints require an API key.
+Send it via either header:
+
+```
+X-API-Key: <your-key>
+# or
+Authorization: Bearer <your-key>
+```
+
+Requests without a valid key receive `401 Unauthorized`. If `API_KEYS` is left
+empty (e.g. local development), the endpoints are open.
+
 ### `POST /api/v1/verify`
 
 Verifies a signed document and returns a PDF report (default) or the structured JSON.
@@ -148,6 +163,7 @@ Verifies a signed document and returns a PDF report (default) or the structured 
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify?lang=en" \
+  -H "X-API-Key: <your-key>" \
   -F "file=@signed.pdf" \
   -o verification-report.pdf
 ```
@@ -156,6 +172,7 @@ curl -X POST "http://localhost:3000/api/v1/verify?lang=en" \
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signed.pdf" \
+  -H "X-API-Key: <your-key>" \
   -H "Content-Type: application/pdf" \
   --data-binary "@signed.pdf"
 ```
@@ -164,13 +181,14 @@ curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signed.pd
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify" \
+  -H "X-API-Key: <your-key>" \
   -F "file=@signature.p7s" \
   -F "originalDocument=@original.txt" \
   -o report.pdf
 ```
 
-Errors are returned as JSON: `400` (bad request), `413` (too large),
-`502` (DSS unreachable), `500` (unexpected).
+Errors are returned as JSON: `400` (bad request), `401` (missing/invalid API key),
+`413` (too large), `502` (DSS unreachable), `500` (unexpected).
 
 ### Other endpoints (used by the frontend)
 
