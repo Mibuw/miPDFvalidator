@@ -32,6 +32,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Writable dir for the per-user usage log (STATS_FILE). A named volume mounted
+# here inherits this ownership on first init, so the non-root user can write.
+RUN mkdir -p /data && chown nextjs:nodejs /data
+VOLUME ["/data"]
+
 USER nextjs
 EXPOSE 3000
 

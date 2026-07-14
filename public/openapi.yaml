@@ -11,8 +11,8 @@ info:
     get the PDF report back directly. It also supports `format=json` to receive
     the structured report instead.
 
-    **Authentication:** all endpoints require an API key, sent either via the
-    `X-API-Key` header or as `Authorization: Bearer <key>`.
+    **Authentication:** the whole API uses HTTP Basic authentication — send
+    `Authorization: Basic base64(user:password)`.
   license:
     name: MIT
     identifier: MIT
@@ -25,11 +25,10 @@ tags:
   - name: Verification
     description: Verify signed documents and generate reports
 
-# Every operation requires an API key (enforced when the server sets API_KEYS).
-# Either scheme satisfies the requirement.
+# Every operation requires HTTP Basic authentication
+# (enforced when the server sets BASIC_AUTH_USERS).
 security:
-  - ApiKeyAuth: []
-  - BearerAuth: []
+  - BasicAuth: []
 
 paths:
   /api/v1/verify:
@@ -237,20 +236,42 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/stats:
+    get:
+      tags: [Verification]
+      summary: Per-user usage statistics (admin only)
+      description: |
+        Returns how many documents each authenticated user has validated, with a
+        breakdown by overall indication. Backed by a persistent append-only log.
+        Restricted to admin users (see `ADMIN_USERS`); non-admins get `403`.
+      operationId: getStats
+      responses:
+        "200":
+          description: Aggregated per-user usage statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-      description: API key sent in the `X-API-Key` request header.
-    BearerAuth:
+    BasicAuth:
       type: http
-      scheme: bearer
-      description: API key sent as `Authorization: Bearer <key>`.
+      scheme: basic
+      description: HTTP Basic authentication — `Authorization: Basic base64(user:password)`.
   responses:
     Unauthorized:
-      description: Missing or invalid API key.
+      description: Missing or invalid credentials.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but not permitted (e.g. non-admin accessing stats).
       content:
         application/json:
           schema:
@@ -266,6 +287,44 @@ components:
           type: string
           description: Optional additional detail (e.g. backend response).
       required: [error]
+
+    StatsSummary:
+      type: object
+      description: Aggregated per-user usage statistics.
+      properties:
+        totalDocuments:
+          type: integer
+          description: Total number of documents validated across all users.
+        generatedAt:
+          type: string
+          format: date-time
+        users:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/UserStats"
+          description: Map of username → their usage counters.
+      required: [totalDocuments, users, generatedAt]
+
+    UserStats:
+      type: object
+      properties:
+        documents:
+          type: integer
+          description: Number of documents this user validated.
+        byIndication:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count per overall indication (e.g. TOTAL_PASSED, INDETERMINATE).
+        firstAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [documents, byIndication]
 
     ValidationResponse:
       type: object

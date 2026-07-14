@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DssError } from "@/lib/dss";
 import { verifyDocument } from "@/lib/verify";
 import { logger, newRequestId, errFields } from "@/lib/logger";
-import { isAuthorized, unauthorized } from "@/lib/auth";
+import { recordValidation } from "@/lib/stats";
 
 // The DSS client uses Node core (Buffer, fetch abort) — force the Node runtime.
 export const runtime = "nodejs";
@@ -15,13 +15,10 @@ function maxBytes(): number {
 
 export async function POST(req: NextRequest) {
   // channel "web": this route backs the browser UI (not the public REST API).
-  const log = logger.child({ channel: "web", route: "/api/validate", reqId: newRequestId() });
+  // Authenticated by middleware (Basic auth); the user is forwarded here.
+  const user = req.headers.get("x-auth-user") || "anonymous";
+  const log = logger.child({ channel: "web", route: "/api/validate", reqId: newRequestId(), user });
   const startedAt = Date.now();
-
-  if (!isAuthorized(req)) {
-    log.warn("unauthorized");
-    return unauthorized();
-  }
 
   let form: FormData;
   try {
@@ -78,6 +75,13 @@ export async function POST(req: NextRequest) {
       validSignatures: payload.report.validSignaturesCount,
       totalSignatures: payload.report.signaturesCount,
       ms: Date.now() - startedAt,
+    });
+    await recordValidation({
+      user,
+      route: "/api/validate",
+      indication: payload.report.overallIndication,
+      valid: payload.report.validSignaturesCount,
+      total: payload.report.signaturesCount,
     });
     return NextResponse.json(payload);
   } catch (err) {

@@ -1,24 +1,99 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * This app exposes **no** Server Actions — every mutation goes through the
- * `/api/*` route handlers (see `src/app/page.tsx`, which uses `fetch`).
+ * Middleware runs on every request (except static assets, see `config.matcher`)
+ * and does two things:
  *
- * A public instance gets probed by bots that POST a bogus `Next-Action`
- * header. Next.js would otherwise try to resolve the (non-existent) action and
- * log a noisy "Failed to find Server Action" stack trace on every hit. Since we
- * never handle actions, short-circuit any such request quietly with 400.
+ *  1. Blocks bogus `Next-Action` probes from bots — this app exposes no Server
+ *     Actions (all mutations go through the `/api/*` route handlers), so such a
+ *     request would otherwise produce a noisy "Failed to find Server Action" log.
  *
- * If Server Actions are ever added to this project, remove this guard.
+ *  2. Enforces HTTP **Basic authentication** for the whole site (pages + API)
+ *     when `BASIC_AUTH_USERS` is configured. Protecting the pages too means the
+ *     browser shows its native login dialog; after login the cached credentials
+ *     are sent automatically with the UI's `fetch` calls, so the web UI keeps
+ *     working. Programmatic clients send `Authorization: Basic base64(user:pass)`.
+ *     The authenticated username is forwarded to route handlers via the
+ *     `x-auth-user` header (for per-user usage tracking).
+ *
+ * `BASIC_AUTH_USERS` is a comma-separated list of `user:password` pairs. If it is
+ * empty (e.g. local development), authentication is disabled.
  */
+
+function parseUsers(): Map<string, string> {
+  const users = new Map<string, string>();
+  for (const pair of (process.env.BASIC_AUTH_USERS || "").split(",")) {
+    const entry = pair.trim();
+    if (!entry) continue;
+    const sep = entry.indexOf(":");
+    if (sep <= 0) continue;
+    users.set(entry.slice(0, sep), entry.slice(sep + 1));
+  }
+  return users;
+}
+
+/** Length-independent, early-exit-free string comparison. */
+function safeEqual(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  const len = Math.max(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
+/** Returns the authenticated username, or null if credentials are missing/invalid. */
+function authenticate(req: NextRequest, users: Map<string, string>): string | null {
+  const header = req.headers.get("authorization") || "";
+  if (!/^basic\s+/i.test(header)) return null;
+  let decoded: string;
+  try {
+    decoded = atob(header.replace(/^basic\s+/i, "").trim());
+  } catch {
+    return null;
+  }
+  const sep = decoded.indexOf(":");
+  if (sep < 0) return null;
+  const user = decoded.slice(0, sep);
+  const pass = decoded.slice(sep + 1);
+  const expected = users.get(user);
+  if (expected === undefined) {
+    safeEqual(pass, pass); // reduce user-enumeration timing signal
+    return null;
+  }
+  return safeEqual(pass, expected) ? user : null;
+}
+
+function unauthorized(): NextResponse {
+  return new NextResponse("Authentication required.", {
+    status: 401,
+    headers: { "WWW-Authenticate": 'Basic realm="miPDFvalidator", charset="UTF-8"' },
+  });
+}
+
 export function middleware(req: NextRequest) {
+  // (1) Drop bogus Server-Action probes quietly.
   if (req.headers.has("next-action")) {
     return new NextResponse(null, { status: 400 });
   }
+
+  // (2) Basic auth (only when configured).
+  const users = parseUsers();
+  if (users.size > 0) {
+    const user = authenticate(req, users);
+    if (!user) return unauthorized();
+    // Forward the authenticated user; strip any client-supplied value to
+    // prevent spoofing of the tracking identity.
+    const headers = new Headers(req.headers);
+    headers.delete("x-auth-user");
+    headers.set("x-auth-user", user);
+    return NextResponse.next({ request: { headers } });
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  // Run on everything except Next's static assets and the favicon.
+  // Everything except Next's static assets and the favicon.
   matcher: "/((?!_next/static|_next/image|favicon.ico).*)",
 };

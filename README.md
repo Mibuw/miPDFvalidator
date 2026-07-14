@@ -8,6 +8,7 @@ Drag & drop a document → validate it via DSS → download a **PDF verification
 including OCSP, CRL and timestamp checks.
 
 > **Live instance:** <https://miPDFvalidator.mitterbucher.com> (availability not guaranteed)
+> — demo login (HTTP Basic): **`sample`** / **`sample`**
 
 ## Features
 
@@ -131,56 +132,54 @@ and returns the **PDF report** directly.
 
 ### Authentication
 
-**All** `/api/*` endpoints (`/api/v1/verify`, `/api/validate`, `/api/report`)
-require an API key when the server is configured with one. A client sends the
-key via either header:
+The whole site (all pages **and** every `/api/*` endpoint) is protected with
+**HTTP Basic authentication** when the server is configured with users.
 
+- **In a browser:** opening the site shows the native login dialog; after
+  logging in, the UI works normally (the cached credentials are sent
+  automatically with its requests).
+- **Programmatic clients** send the standard header:
+
+  ```
+  Authorization: Basic base64(user:password)
+  # with curl simply:  -u user:password
+  ```
+
+Requests without valid credentials receive `401 Unauthorized`.
+
+#### Configuring users (server side)
+
+Users are read from the **`BASIC_AUTH_USERS`** environment variable — a
+comma-separated list of `user:password` pairs. Auth is enforced only when it is
+non-empty; if empty (e.g. local development) the site is open.
+
+```env
+# .env  (chmod 600, not tracked by git)
+BASIC_AUTH_USERS=sample:sample,mipdfsign:<strong-password>,admin:<strong-password>
+ADMIN_USERS=admin
 ```
-X-API-Key: <your-key>
-# or
-Authorization: Bearer <your-key>
+
+```yaml
+# docker-compose.yml → service environment
+environment:
+  BASIC_AUTH_USERS: "${BASIC_AUTH_USERS:-}"
+  ADMIN_USERS: "${ADMIN_USERS:-}"
 ```
 
-Requests without a valid key receive `401 Unauthorized`.
+Changes take effect on `docker compose up -d` (read at runtime, no rebuild).
+**Rotation / user management:** just add or remove entries in `BASIC_AUTH_USERS`.
 
-> **Note:** because the browser UI also calls `/api/validate` and `/api/report`,
-> enabling authentication makes the web UI unusable for anonymous visitors — the
-> service becomes API-key-only.
+#### Usage statistics — `GET /api/stats`
 
-#### Configuring keys (server side)
+Every completed validation is counted per user in a persistent append-only log
+(`STATS_FILE`, default `/data/validations.jsonl` — mount a volume to keep it).
+`GET /api/stats` returns the per-user document counts (with a breakdown by
+overall indication). It is **admin-only**: the authenticated user must be listed
+in `ADMIN_USERS`, otherwise the endpoint returns `403`.
 
-Keys are read from the **`API_KEYS`** environment variable — a comma-separated
-list, so several keys are valid at once (useful for rotation). Enforcement is
-active only when `API_KEYS` is non-empty; if it is empty (e.g. local
-development) the endpoints stay open.
-
-1. **Generate a strong key:**
-
-   ```bash
-   echo "mipdfv_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
-   ```
-
-2. **Set it for the server.** For the Docker deployment, put it in a `.env` file
-   next to `docker-compose.yml` (never commit it) and pass it through:
-
-   ```env
-   # .env  (chmod 600, not tracked by git)
-   API_KEYS=mipdfv_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   ```
-
-   ```yaml
-   # docker-compose.yml → service environment
-   environment:
-     API_KEYS: "${API_KEYS:-}"
-   ```
-
-   Or export it directly (`export API_KEYS=…`) for `npm run start`.
-
-3. **Apply:** restart the app (`docker compose up -d`) — no rebuild needed, the
-   value is read at runtime.
-
-**Rotation:** add the new key alongside the old one
-(`API_KEYS=oldkey,newkey`), roll clients over, then drop the old key.
+```bash
+curl -u admin:<password> https://miPDFvalidator.mitterbucher.com/api/stats
+```
 
 ### `POST /api/v1/verify`
 
@@ -201,7 +200,7 @@ Verifies a signed document and returns a PDF report (default) or the structured 
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify?lang=en" \
-  -H "X-API-Key: <your-key>" \
+  -u user:password \
   -F "file=@signed.pdf" \
   -o verification-report.pdf
 ```
@@ -210,7 +209,7 @@ curl -X POST "http://localhost:3000/api/v1/verify?lang=en" \
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signed.pdf" \
-  -H "X-API-Key: <your-key>" \
+  -u user:password \
   -H "Content-Type: application/pdf" \
   --data-binary "@signed.pdf"
 ```
@@ -219,13 +218,13 @@ curl -X POST "http://localhost:3000/api/v1/verify?format=json&filename=signed.pd
 
 ```bash
 curl -X POST "http://localhost:3000/api/v1/verify" \
-  -H "X-API-Key: <your-key>" \
+  -u user:password \
   -F "file=@signature.p7s" \
   -F "originalDocument=@original.txt" \
   -o report.pdf
 ```
 
-Errors are returned as JSON: `400` (bad request), `401` (missing/invalid API key),
+Errors are returned as JSON: `400` (bad request), `401` (missing/invalid credentials),
 `413` (too large), `502` (DSS unreachable), `500` (unexpected).
 
 ### Other endpoints (used by the frontend)
