@@ -131,9 +131,9 @@ and returns the **PDF report** directly.
 
 ### Authentication
 
-When the server is configured with `API_KEYS` (comma-separated list, see
-[`.env.example`](.env.example)), **all** `/api/*` endpoints require an API key.
-Send it via either header:
+**All** `/api/*` endpoints (`/api/v1/verify`, `/api/validate`, `/api/report`)
+require an API key when the server is configured with one. A client sends the
+key via either header:
 
 ```
 X-API-Key: <your-key>
@@ -141,8 +141,46 @@ X-API-Key: <your-key>
 Authorization: Bearer <your-key>
 ```
 
-Requests without a valid key receive `401 Unauthorized`. If `API_KEYS` is left
-empty (e.g. local development), the endpoints are open.
+Requests without a valid key receive `401 Unauthorized`.
+
+> **Note:** because the browser UI also calls `/api/validate` and `/api/report`,
+> enabling authentication makes the web UI unusable for anonymous visitors — the
+> service becomes API-key-only.
+
+#### Configuring keys (server side)
+
+Keys are read from the **`API_KEYS`** environment variable — a comma-separated
+list, so several keys are valid at once (useful for rotation). Enforcement is
+active only when `API_KEYS` is non-empty; if it is empty (e.g. local
+development) the endpoints stay open.
+
+1. **Generate a strong key:**
+
+   ```bash
+   echo "mipdfv_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+   ```
+
+2. **Set it for the server.** For the Docker deployment, put it in a `.env` file
+   next to `docker-compose.yml` (never commit it) and pass it through:
+
+   ```env
+   # .env  (chmod 600, not tracked by git)
+   API_KEYS=mipdfv_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+
+   ```yaml
+   # docker-compose.yml → service environment
+   environment:
+     API_KEYS: "${API_KEYS:-}"
+   ```
+
+   Or export it directly (`export API_KEYS=…`) for `npm run start`.
+
+3. **Apply:** restart the app (`docker compose up -d`) — no rebuild needed, the
+   value is read at runtime.
+
+**Rotation:** add the new key alongside the old one
+(`API_KEYS=oldkey,newkey`), roll clients over, then drop the old key.
 
 ### `POST /api/v1/verify`
 
