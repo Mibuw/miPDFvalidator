@@ -7,8 +7,8 @@ on top of the [ETSI DSS](https://ec.europa.eu/digital-building-blocks/DSS/webapp
 Drag & drop a document → validate it via DSS → download a **PDF verification report**
 including OCSP, CRL and timestamp checks.
 
-> **Live instance:** <https://miPDFvalidator.mitterbucher.com> (availability not guaranteed)
-> — demo login (HTTP Basic): **`sample`** / **`sample`**
+> **Live instance:** <https://miPDFvalidator.mitterbucher.com> (availability not guaranteed).
+> The web UI is a **public demo** (no login); the REST API requires credentials.
 
 ## Features
 
@@ -132,30 +132,29 @@ and returns the **PDF report** directly.
 
 ### Authentication
 
-The whole site (all pages **and** every `/api/*` endpoint) is protected with
-**HTTP Basic authentication** when the server is configured with users.
+The web UI — the page and the endpoints it uses (`/api/validate`,
+`/api/report`) — is a **public demo** with no login. Only the programmatic REST
+endpoint `POST /api/v1/verify` and the admin `GET /api/stats` require
+**HTTP Basic authentication**:
 
-- **In a browser:** opening the site shows the native login dialog; after
-  logging in, the UI works normally (the cached credentials are sent
-  automatically with its requests).
-- **Programmatic clients** send the standard header:
+```
+Authorization: Basic base64(user:password)
+# with curl simply:  -u user:password
+```
 
-  ```
-  Authorization: Basic base64(user:password)
-  # with curl simply:  -u user:password
-  ```
-
-Requests without valid credentials receive `401 Unauthorized`.
+Requests to a protected endpoint without valid credentials receive
+`401 Unauthorized`.
 
 #### Configuring users (server side)
 
 Users are read from the **`BASIC_AUTH_USERS`** environment variable — a
-comma-separated list of `user:password` pairs. Auth is enforced only when it is
-non-empty; if empty (e.g. local development) the site is open.
+comma-separated list of `user:password` pairs. Auth is enforced on the protected
+endpoints only when it is non-empty; if empty (e.g. local development)
+everything is open.
 
 ```env
 # .env  (chmod 600, not tracked by git)
-BASIC_AUTH_USERS=sample:sample,mipdfsign:<strong-password>,admin:<strong-password>
+BASIC_AUTH_USERS=mipdfsign:<strong-password>,admin:<strong-password>
 ADMIN_USERS=admin
 ```
 
@@ -169,13 +168,19 @@ environment:
 Changes take effect on `docker compose up -d` (read at runtime, no rebuild).
 **Rotation / user management:** just add or remove entries in `BASIC_AUTH_USERS`.
 
+**Disabling authentication entirely:** leave `BASIC_AUTH_USERS` **empty**. Then
+there is no login anywhere — every endpoint, including `POST /api/v1/verify` and
+`GET /api/stats`, is open. Handy for a fully public or trusted-network instance.
+
 #### Usage statistics — `GET /api/stats`
 
 Every completed validation is counted per user in a persistent append-only log
 (`STATS_FILE`, default `/data/validations.jsonl` — mount a volume to keep it).
-`GET /api/stats` returns the per-user document counts (with a breakdown by
-overall indication). It is **admin-only**: the authenticated user must be listed
-in `ADMIN_USERS`, otherwise the endpoint returns `403`.
+Public demo validations (via the web UI) are counted under the `demo` user, so
+you can see demo volume separately. `GET /api/stats` returns the per-user
+document counts (with a breakdown by overall indication). It is **admin-only**:
+the authenticated user must be listed in `ADMIN_USERS`, otherwise the endpoint
+returns `403`.
 
 ```bash
 curl -u admin:<password> https://miPDFvalidator.mitterbucher.com/api/stats

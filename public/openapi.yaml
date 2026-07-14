@@ -11,8 +11,10 @@ info:
     get the PDF report back directly. It also supports `format=json` to receive
     the structured report instead.
 
-    **Authentication:** the whole API uses HTTP Basic authentication — send
-    `Authorization: Basic base64(user:password)`.
+    **Authentication:** the public REST endpoint `POST /api/v1/verify` and the
+    admin `GET /api/stats` require HTTP Basic authentication
+    (`Authorization: Basic base64(user:password)`). The web-UI endpoints
+    (`/api/validate`, `/api/report`) are open (public demo).
   license:
     name: MIT
     identifier: MIT
@@ -166,6 +168,7 @@ paths:
         Used by the web frontend. Accepts multipart/form-data with a `file`
         field and returns the normalized report plus the raw DSS reports.
       operationId: validateDocument
+      security: []  # public (web UI / demo)
       requestBody:
         required: true
         content:
@@ -193,8 +196,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
 
   /api/report:
     post:
@@ -205,6 +206,7 @@ paths:
         by `/api/validate` or `/api/v1/verify?format=json`). Used by the web
         frontend for the "Download PDF" action.
       operationId: renderReport
+      security: []  # public (web UI / demo)
       requestBody:
         required: true
         content:
@@ -233,8 +235,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
 
   /api/stats:
     get:

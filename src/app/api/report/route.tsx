@@ -19,7 +19,8 @@ function safeFilename(name: string | undefined): string {
 
 export async function POST(req: NextRequest) {
   // channel "web": this route backs the browser UI (not the public REST API).
-  const user = req.headers.get("x-auth-user") || "anonymous";
+  // Public demo endpoint (no auth) — used by the web UI to render the PDF.
+  const user = req.headers.get("x-auth-user") || "demo";
   const log = logger.child({ channel: "web", route: "/api/report", reqId: newRequestId(), user });
   const startedAt = Date.now();
 

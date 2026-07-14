@@ -8,17 +8,23 @@ import { NextResponse, type NextRequest } from "next/server";
  *     Actions (all mutations go through the `/api/*` route handlers), so such a
  *     request would otherwise produce a noisy "Failed to find Server Action" log.
  *
- *  2. Enforces HTTP **Basic authentication** for the whole site (pages + API)
- *     when `BASIC_AUTH_USERS` is configured. Protecting the pages too means the
- *     browser shows its native login dialog; after login the cached credentials
- *     are sent automatically with the UI's `fetch` calls, so the web UI keeps
- *     working. Programmatic clients send `Authorization: Basic base64(user:pass)`.
- *     The authenticated username is forwarded to route handlers via the
- *     `x-auth-user` header (for per-user usage tracking).
+ *  2. Enforces HTTP **Basic authentication** on the protected paths only —
+ *     the public REST API `/api/v1/*` and the admin `/api/stats`. The web UI
+ *     (the page and the endpoints it uses, `/api/validate` + `/api/report`) is
+ *     left open so it works as a public demo. Programmatic clients send
+ *     `Authorization: Basic base64(user:pass)`. The authenticated username is
+ *     forwarded to route handlers via the `x-auth-user` header (for per-user
+ *     usage tracking); any client-supplied value is stripped to prevent
+ *     spoofing.
  *
  * `BASIC_AUTH_USERS` is a comma-separated list of `user:password` pairs. If it is
  * empty (e.g. local development), authentication is disabled.
  */
+
+/** Paths that require authentication. Everything else (UI, demo) is public. */
+function requiresAuth(pathname: string): boolean {
+  return pathname.startsWith("/api/v1/") || pathname.startsWith("/api/stats");
+}
 
 function parseUsers(): Map<string, string> {
   const users = new Map<string, string>();
@@ -77,20 +83,19 @@ export function middleware(req: NextRequest) {
     return new NextResponse(null, { status: 400 });
   }
 
-  // (2) Basic auth (only when configured).
+  // Always strip any client-supplied identity header (anti-spoofing).
+  const headers = new Headers(req.headers);
+  headers.delete("x-auth-user");
+
+  // (2) Basic auth on protected paths only (when configured).
   const users = parseUsers();
-  if (users.size > 0) {
+  if (users.size > 0 && requiresAuth(req.nextUrl.pathname)) {
     const user = authenticate(req, users);
     if (!user) return unauthorized();
-    // Forward the authenticated user; strip any client-supplied value to
-    // prevent spoofing of the tracking identity.
-    const headers = new Headers(req.headers);
-    headers.delete("x-auth-user");
     headers.set("x-auth-user", user);
-    return NextResponse.next({ request: { headers } });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

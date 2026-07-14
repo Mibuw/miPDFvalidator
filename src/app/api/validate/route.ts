@@ -15,8 +15,8 @@ function maxBytes(): number {
 
 export async function POST(req: NextRequest) {
   // channel "web": this route backs the browser UI (not the public REST API).
-  // Authenticated by middleware (Basic auth); the user is forwarded here.
-  const user = req.headers.get("x-auth-user") || "anonymous";
+  // Public demo endpoint (no auth) — usage is tracked under the "demo" bucket.
+  const user = req.headers.get("x-auth-user") || "demo";
   const log = logger.child({ channel: "web", route: "/api/validate", reqId: newRequestId(), user });
   const startedAt = Date.now();
 
