@@ -115,6 +115,13 @@ Check network and container names with `docker network ls` and `docker ps`.
 If DSS does **not** run in Docker but directly on the host, use
 `DSS_API_URL: http://host.docker.internal:8080`.
 
+### Trusting a private CA
+
+DSS trusts only the certificate authorities on the **EU trusted lists**, so signatures from a private CA come
+back *untrusted*. [`dss/`](dss) builds a DSS image that additionally trusts the certificates you put in
+`dss/trusted/` — useful when you operate the CA yourself. It changes nothing about qualification: such
+signatures validate as **trusted, not qualified**. See [`dss/README.md`](dss/README.md).
+
 ## Usage
 
 1. Drop or select a signed document
