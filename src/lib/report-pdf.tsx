@@ -3,7 +3,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import type { NormalizedReport, NormalizedToken } from "./types";
 import { STATUS_HEX, formatDate, statusOf } from "./status";
-import { describeSubFilter, translate, translateIndication, type Locale } from "./i18n";
+import { describeSubFilter, formatTrustSource, translate, translateIndication, type Locale } from "./i18n";
 
 const COLORS = {
   ink: "#0b1120",
@@ -193,6 +193,7 @@ function TokenCard({ token, index, locale }: { token: NormalizedToken; index: nu
           />
           <KV k={t("sig.level")} v={token.signatureLevelDescription ?? token.signatureLevel} />
           <KV k={t("sig.subIndication")} v={token.subIndication} />
+          <KV k={t("sig.trustSource")} v={formatTrustSource(token.trustSource)} />
         </View>
 
         {token.pdf &&

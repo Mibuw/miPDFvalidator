@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import type { NormalizedReport, NormalizedToken } from "@/lib/types";
 import { formatDate, statusOf } from "@/lib/status";
-import { describeSubFilter } from "@/lib/i18n";
+import { describeSubFilter, formatTrustSource } from "@/lib/i18n";
 import { useI18n } from "./LanguageProvider";
 import { IndicationBadge } from "./IndicationBadge";
 
@@ -89,6 +89,7 @@ function TokenCard({ token, index }: { token: NormalizedToken; index: number }) 
           />
           <Row label={t("sig.level")} value={token.signatureLevelDescription ?? token.signatureLevel} />
           <Row label={t("sig.subIndication")} value={token.subIndication} />
+          <Row label={t("sig.trustSource")} value={formatTrustSource(token.trustSource)} />
         </dl>
 
         {token.pdf && (token.pdf.reason || token.pdf.location || token.pdf.subFilter || token.pdf.filter || token.pdf.fieldName || token.pdf.contactInfo || token.pdf.signerName) && (

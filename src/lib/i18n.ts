@@ -43,6 +43,7 @@ export const messages = {
     "sig.level": "Qualifikation",
     "sig.indication": "Indikation",
     "sig.subIndication": "Sub-Indikation",
+    "sig.trustSource": "Vertrauensquelle",
     "sig.certChain": "Zertifikatskette",
     "sig.scope": "Signaturumfang",
     "sig.timestamps": "Zeitstempel",
@@ -137,6 +138,7 @@ export const messages = {
     "sig.level": "Qualification",
     "sig.indication": "Indication",
     "sig.subIndication": "Sub indication",
+    "sig.trustSource": "Trust source",
     "sig.certChain": "Certificate chain",
     "sig.scope": "Signature scope",
     "sig.timestamps": "Timestamps",
@@ -241,6 +243,16 @@ export function describeSubFilter(locale: Locale, subFilter: string | undefined)
   };
   const hit = map[subFilter];
   return hit ? hit[locale] : subFilter;
+}
+
+/** Compact one-line label for a token's trust source (provider — trust list). */
+export function formatTrustSource(
+  ts: { provider?: string; trustList?: string; serviceType?: string } | undefined,
+): string | undefined {
+  if (!ts) return undefined;
+  const svc = ts.serviceType ? ` (${ts.serviceType})` : "";
+  if (ts.provider && ts.trustList) return `${ts.provider} — ${ts.trustList}${svc}`;
+  return ts.trustList ? `${ts.trustList}${svc}` : ts.provider;
 }
 
 /** Translate a DSS indication string to a localized label (falls back to the raw value). */

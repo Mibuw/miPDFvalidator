@@ -108,6 +108,20 @@ export interface NormalizedToken {
   crypto?: NormalizedCrypto;
   /** Signing certificate details (enriched from DiagnosticData). */
   signerCertificate?: NormalizedSignerCertificate;
+  /** Where the trust anchor for this token comes from (trusted list / trust store). */
+  trustSource?: NormalizedTrustSource;
+}
+
+/** Provenance of the trust anchor: which trusted list / trust store vouches for it. */
+export interface NormalizedTrustSource {
+  /** Trust Service Provider or trust-anchor name, e.g. "Swisscom IT Services Finance S.E.". */
+  provider?: string;
+  /** Trust list the anchor comes from, e.g. "EU Trusted List", "Swiss Trusted List (ZertES)". */
+  trustList?: string;
+  /** ISO country code of the trusted list / provider, if known. */
+  country?: string;
+  /** Service type, e.g. "QC", "QTST" (last path segment of the ETSI service type URI). */
+  serviceType?: string;
 }
 
 export type RevocationKind = "OCSP" | "CRL" | (string & {});

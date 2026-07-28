@@ -7,6 +7,7 @@ import type {
   NormalizedRevocation,
   NormalizedScope,
   NormalizedToken,
+  NormalizedTrustSource,
   TokenKind,
 } from "./types";
 
@@ -236,6 +237,67 @@ function enrichSignatureFromDiagnostic(
   }
 }
 
+/** Pick the value of a possibly multi-lingual DSS name list, preferring English. */
+function pickLangValue(v: unknown): string | undefined {
+  const arr = asArray(v);
+  if (arr.length === 0) return asString(v);
+  const en = arr.find((x) => String(ci(x, "lang", "Lang") ?? "").toLowerCase() === "en");
+  return asString(en ?? arr[0]);
+}
+
+/**
+ * Determine where the trust anchor of a token (signature or timestamp) comes
+ * from: a real Trusted List (has a Trust Service Provider) or our configured
+ * trust store. Walks the token's certificate chain and reports the anchor.
+ */
+function deriveTrustSource(ddNode: unknown, certById: Record<string, unknown>): NormalizedTrustSource | undefined {
+  // DSS puts the trust chain (leaf..root) under `ChainItem`, each a ref like
+  // { Certificate: "C-…" }.
+  const chain: unknown[] = [];
+  for (const ref of asArray(ci(ddNode, "chainItem", "ChainItem", "certificateChain", "CertificateChain"))) {
+    const id = asString(ci(ref, "id", "Id")) ?? asString(ci(ref, "certificate", "Certificate"));
+    if (id && certById[id]) chain.push(certById[id]);
+  }
+  const isTrusted = (c: unknown): boolean => {
+    const tr = ci(c, "trusted", "Trusted");
+    if (typeof tr === "boolean") return tr;
+    return boolOf(ci(tr, "value", "Value")) === true;
+  };
+  const tspOf = (c: unknown): unknown =>
+    asArray(ci(c, "trustServiceProviders", "TrustServiceProviders", "trustServiceProvider", "TrustServiceProvider"))[0];
+
+  // Prefer a trusted anchor carrying a Trust Service Provider (a real TSL);
+  // otherwise the first trusted anchor (e.g. a cert from our trust store).
+  let withTsp: unknown, anyTrusted: unknown;
+  for (const c of chain) {
+    if (!isTrusted(c)) continue;
+    if (!anyTrusted) anyTrusted = c;
+    if (!withTsp && tspOf(c)) withTsp = c;
+  }
+  const anchor = withTsp ?? anyTrusted;
+  if (!anchor) return undefined;
+
+  const tsp = tspOf(anchor);
+  if (tsp) {
+    const svc = asArray(ci(tsp, "trustServices", "TrustServices", "trustService", "TrustService"))[0];
+    const svcType = asString(ci(svc, "serviceType", "ServiceType"));
+    return {
+      provider: pickLangValue(ci(tsp, "tspName", "TSPName")),
+      trustList: "EU Trusted List",
+      country: asString(ci(tsp, "countryCode", "CountryCode")) ?? asString(ci(anchor, "countryName", "CountryName")),
+      serviceType: svcType ? svcType.split("/").filter(Boolean).pop() : undefined,
+    };
+  }
+  // Trusted via our configured trust store (keystore) — no TSP entry in DSS.
+  const country = asString(ci(anchor, "countryName", "CountryName"));
+  const isCH = (country ?? "").toUpperCase() === "CH";
+  return {
+    provider: asString(ci(anchor, "commonName", "CommonName")),
+    trustList: isCH ? "Swiss Trusted List (ZertES)" : "Configured trust store",
+    country,
+  };
+}
+
 /**
  * Apply DiagnosticData enrichment to all tokens: signature-level details plus
  * per-timestamp digest algorithm and issuing TSA name.
@@ -248,7 +310,13 @@ function enrichTokens(tokens: NormalizedToken[], diagnosticData: unknown): void 
   for (const token of tokens) {
     if (token.kind === "signature") {
       const dd = ddSignatures[token.id];
-      if (dd) enrichSignatureFromDiagnostic(token, dd, certById);
+      if (dd) {
+        enrichSignatureFromDiagnostic(token, dd, certById);
+        token.trustSource = deriveTrustSource(dd, certById);
+      }
+    } else if (token.kind === "timestamp") {
+      const tdd = ddTimestamps[token.id];
+      if (tdd) token.trustSource = deriveTrustSource(tdd, certById);
     }
     for (const its of token.timestamps) {
       const tdd = its.id ? ddTimestamps[its.id] : undefined;
