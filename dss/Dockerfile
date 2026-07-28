@@ -23,7 +23,7 @@ COPY trusted/ /build/trusted/
 
 RUN set -eu; \
     found=0; \
-    for cert in /build/trusted/*.crt; do \
+    for cert in $(find /build/trusted -type f -name "*.crt" | sort); do \
       [ -e "$cert" ] || continue; \
       found=1; \
       alias="$(basename "$cert" .crt)"; \

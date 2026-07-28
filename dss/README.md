@@ -43,6 +43,27 @@ openssl x509 -in dss/trusted/my-root-ca.crt -noout -fingerprint -sha256
 
 The file name becomes the keystore alias, so name it after the CA.
 
+Certificates may live in subdirectories — the `Dockerfile` imports `trusted/**/*.crt` recursively.
+
+## Swiss Trusted List (ZertES)
+
+`trusted/ch/` holds the CA certificates of the **granted** trust services from the official
+**Swiss Trusted List** (`https://trustedlist.tsl-switzerland.ch/tsl-ch.xml`) — Swisscom, SwissSign,
+DigiCert/QuoVadis, the Swiss Government CAs, etc. They are extracted (not hand-picked) so Swiss ZertES
+signatures validate as **trusted** here. As with any trust-store entry this is **trusted, not qualified** —
+DSS qualification would require processing the TSL as a real trusted list, which we deliberately do not do
+(the DSS core stays untouched).
+
+Two helpers keep this current:
+
+| Script | Purpose |
+|---|---|
+| [`extract-swiss-tsl.py`](extract-swiss-tsl.py) | Parse a `tsl-ch.xml` and write every granted service certificate to `trusted/ch/` (`extract-swiss-tsl.py <tsl.xml> <out-dir>`). |
+| [`refresh-swiss-tsl.sh`](refresh-swiss-tsl.sh) | Fetch the live TSL, re-extract, and rebuild + redeploy the DSS image **only if the certificate set changed**. |
+
+`refresh-swiss-tsl.sh` runs weekly on the server via `/etc/cron.d/mipdfvalidator-swiss-tsl`
+(`17 3 * * 0`), so the snapshot follows the Swiss TSL without touching the DSS base image.
+
 ## Build & run
 
 ```bash
